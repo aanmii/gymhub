@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: gymhub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gymhub_db
+      POSTGRES_USER: gymhub_user
+      POSTGRES_PASSWORD: gymhub_password_2024
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - gymhub-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gymhub_user -d gymhub_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymhub-backend
+    restart: unless-stopped
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: gymhub_db
+      DB_USER: gymhub_user
+      DB_PASSWORD: gymhub_password_2024
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production-must-be-at-least-256-bits-long}
+      JWT_EXPIRATION: 86400000
+      # Stripe
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_your_key_here}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_your_key_here}
+      # Server
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gymhub-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # React Frontend (will be added later)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: gymhub-frontend
+  #   restart: unless-stopped
+  #   environment:
+  #     REACT_APP_API_URL: http://localhost:8080/api
+  #     REACT_APP_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-pk_test_your_key_here}
+  #   ports:
+  #     - "3000:80"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - gymhub-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  gymhub-network:
+    driver: bridge
