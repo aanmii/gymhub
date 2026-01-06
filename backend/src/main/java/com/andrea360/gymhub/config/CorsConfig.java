@@ -8,7 +8,6 @@ import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
 import java.util.Collections;
-
 @Configuration
 public class CorsConfig {
 
@@ -16,10 +15,8 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-
         config.setAllowCredentials(true);
-        config.setAllowedOriginPatterns(Collections.singletonList("*"));
-
+        config.setAllowedOrigins(Collections.singletonList("http://localhost:3000"));
 
         config.setAllowedHeaders(Arrays.asList(
                 "Origin",
@@ -28,7 +25,6 @@ public class CorsConfig {
                 "Authorization",
                 "X-Requested-With"
         ));
-
 
         config.setAllowedMethods(Arrays.asList(
                 "GET",
@@ -40,8 +36,6 @@ public class CorsConfig {
         ));
 
         config.setExposedHeaders(Collections.singletonList("Authorization"));
-
-
         config.setMaxAge(3600L);
 
         source.registerCorsConfiguration("/**", config);
