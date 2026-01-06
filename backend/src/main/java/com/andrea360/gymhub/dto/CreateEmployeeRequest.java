@@ -9,9 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO for creating an employee
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

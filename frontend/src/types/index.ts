@@ -1,4 +1,4 @@
-// User Types
+
 export const Role = {
     ADMIN: 'ADMIN',
     EMPLOYEE: 'EMPLOYEE',
@@ -47,7 +47,6 @@ export interface RegisterRequest {
     locationId?: number;
 }
 
-// Location Types
 export interface Location {
     id: number;
     name: string;
@@ -62,11 +61,42 @@ export interface CreateLocationRequest {
     address: string;
 }
 
-// Error Response
 export interface ErrorResponse {
     timestamp: string;
     status: number;
     error: string;
     message: string;
     details?: Record<string, string>;
+}
+
+export interface Employee {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    locationId: number;
+    locationName: string;
+    createdAt: string;
+}
+
+export interface CreateEmployeeRequest {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    locationId?: number;
+}
+
+export interface EmployeeResponse {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: 'EMPLOYEE' | 'ADMIN';
+    locationName: string;
+    active: boolean;
+    createdAt: string;
+    updatedAt: string;
 }
