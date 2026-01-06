@@ -11,59 +11,74 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="bg-indigo-600">
+    <nav className="glass-dark border-b border-white/10 sticky top-0 z-50 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0">
-              <span className="text-white text-2xl font-bold">GymHub</span>
-            </Link>
-            {isAuthenticated && (
-              <div className="ml-10 flex items-baseline space-x-4">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-3 group">
+            <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              GymHub
+            </span>
+          </Link>
+
+          {/* Navigation Links */}
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center space-x-2">
+              <Link
+                to="/"
+                className="px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-all"
+              >
+                Dashboard
+              </Link>
+              {isAdmin && (
                 <Link
-                  to="/"
-                  className="text-white hover:bg-indigo-500 hover:bg-opacity-75 px-3 py-2 rounded-md text-sm font-medium"
+                  to="/admin"
+                  className="px-4 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-all"
                 >
-                  Dashboard
+                  Admin
                 </Link>
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="text-white hover:bg-indigo-500 hover:bg-opacity-75 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Admin
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center">
+              )}
+            </div>
+          )}
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-white text-sm">
-                  {user?.firstName} {user?.lastName}
-                </span>
-                <span className="text-indigo-200 text-xs px-2 py-1 bg-indigo-800 rounded">
-                  {user?.role}
-                </span>
+              <>
+                <div className="hidden md:flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-white">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-xs text-gray-400">{user?.role}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center font-bold text-white shadow-lg">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
-                  className="text-white hover:bg-indigo-500 hover:bg-opacity-75 px-3 py-2 rounded-md text-sm font-medium"
+                  className="px-4 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 transition-all"
                 >
                   Logout
                 </button>
-              </div>
+              </>
             ) : (
-              <div className="flex space-x-4">
+              <div className="flex space-x-3">
                 <Link
                   to="/login"
-                  className="text-white hover:bg-indigo-500 hover:bg-opacity-75 px-3 py-2 rounded-md text-sm font-medium"
+                  className="px-4 py-2 rounded-lg text-white hover:bg-white/10 transition-all"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-white text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-md text-sm font-medium"
+                  className="px-4 py-2 rounded-lg gradient-primary text-white font-semibold shadow-lg shadow-purple-500/50 hover:shadow-purple-500/80 transition-all"
                 >
                   Register
                 </Link>
