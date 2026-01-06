@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   postgres:
     image: postgres:15
@@ -26,6 +28,15 @@ services:
       - "8081:8081"
     depends_on:
       - postgres
+    networks:
+      - gymhub-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: gymhub-frontend
+    ports:
+      - "3000:80"
     networks:
       - gymhub-network
 
