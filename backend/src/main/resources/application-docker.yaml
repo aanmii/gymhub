@@ -18,3 +18,7 @@ jwt:
   secret: "my-super-secret-jwt-key-which-is-long-enough-123456"
   expiration: 86400000
 
+stripe:
+  api:
+    secret-key: ${STRIPE_SECRET_KEY}
+
