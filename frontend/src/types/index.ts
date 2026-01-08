@@ -47,6 +47,7 @@ export interface RegisterRequest {
     locationId?: number;
 }
 
+// Location Types
 export interface Location {
     id: number;
     name: string;
