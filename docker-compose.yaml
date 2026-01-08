@@ -24,6 +24,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/gymhubdb
       SPRING_DATASOURCE_USERNAME: gymhub
       SPRING_DATASOURCE_PASSWORD: gymhub
+    env_file:
+      - .env    
     ports:
       - "8081:8081"
     depends_on:
