@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
 
 
 @RestController
@@ -47,9 +49,9 @@ public class MemberController {
 
     @GetMapping("/location/{locationId}")
     @PreAuthorize("hasRole('EMPLOYEE') or hasRole('ADMIN')")
-    @Operation(summary = "Get members by location", description = "Get all members for a location")
-    public ResponseEntity<?> getMembersByLocation(@PathVariable Long locationId) {
-        // This will be implemented by UserService - for now return placeholder
-        return ResponseEntity.ok().build();
+    public ResponseEntity<List<UserResponse>> getMembersByLocation(@PathVariable Long locationId) {
+        List<UserResponse> members = authService.getMembersByLocation(locationId);
+        return ResponseEntity.ok(members);
     }
+
 }

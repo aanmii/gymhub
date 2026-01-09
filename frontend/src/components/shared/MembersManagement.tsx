@@ -39,16 +39,20 @@ export const MembersManagement = ({
 
   const fetchMembers = async () => {
     try {
-      // Note: Backend needs this endpoint
-      const endpoint = locationId 
-        ? `/members/location/${locationId}` 
-        : '/members';
-      
-      const response = await api.get<UserResponse[]>(endpoint);
-      setMembers(response.data);
+      const endpoint = locationId ? `/members/location/${locationId}` : '/members';
+      const response = await api.get(endpoint);
+      const membersArray: UserResponse[] = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
+      const membersWithLocation = membersArray.map(m => ({
+        ...m,
+        locationName: m.locationName || locations.find(l => l.id === m.locationId)?.name || ''
+      }));
+      setMembers(membersWithLocation);
     } catch (err: any) {
       console.error('Failed to fetch members:', err);
-      // If endpoint doesn't exist yet, set empty array
       setMembers([]);
     }
   };
@@ -100,7 +104,6 @@ export const MembersManagement = ({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-bold text-white flex items-center">
           <svg className="w-6 h-6 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +132,6 @@ export const MembersManagement = ({
         )}
       </div>
 
-      {/* Alerts */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 backdrop-blur-sm">
           <div className="text-sm text-red-200">{error}</div>
@@ -142,16 +144,13 @@ export const MembersManagement = ({
         </div>
       )}
 
-      {/* Create Form */}
       {showForm && (
         <div className="glass rounded-2xl p-8">
           <h4 className="text-xl font-bold text-white mb-6">Create New Member</h4>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  First Name
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">First Name</label>
                 <input
                   type="text"
                   name="firstName"
@@ -164,9 +163,7 @@ export const MembersManagement = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Last Name
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Last Name</label>
                 <input
                   type="text"
                   name="lastName"
@@ -181,9 +178,7 @@ export const MembersManagement = ({
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Email</label>
                 <input
                   type="email"
                   name="email"
@@ -196,9 +191,7 @@ export const MembersManagement = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Phone (optional)
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Phone (optional)</label>
                 <input
                   type="tel"
                   name="phone"
@@ -212,9 +205,7 @@ export const MembersManagement = ({
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                  Password
-                </label>
+                <label className="block text-sm font-medium text-gray-200 mb-2">Password</label>
                 <input
                   type="password"
                   name="password"
@@ -228,9 +219,7 @@ export const MembersManagement = ({
 
               {!locationId && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Location
-                  </label>
+                  <label className="block text-sm font-medium text-gray-200 mb-2">Location</label>
                   <select
                     name="locationId"
                     required
@@ -260,7 +249,6 @@ export const MembersManagement = ({
         </div>
       )}
 
-      {/* Members List */}
       <div className="glass rounded-2xl p-8">
         {members.length === 0 ? (
           <div className="text-center py-12">
@@ -274,19 +262,14 @@ export const MembersManagement = ({
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {members.map((member) => (
-              <div
-                key={member.id}
-                className="glass-dark rounded-xl p-6 card-hover"
-              >
+              <div key={member.id} className="glass-dark rounded-xl p-6 card-hover">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 rounded-full gradient-primary flex items-center justify-center font-bold text-white shadow-lg">
                       {member.firstName[0]}{member.lastName[0]}
                     </div>
                     <div>
-                      <h4 className="text-lg font-bold text-white">
-                        {member.firstName} {member.lastName}
-                      </h4>
+                      <h4 className="text-lg font-bold text-white">{member.firstName} {member.lastName}</h4>
                       <p className="text-sm text-gray-400">{member.email}</p>
                     </div>
                   </div>
@@ -301,7 +284,7 @@ export const MembersManagement = ({
                       {member.phone}
                     </p>
                   )}
-                  
+
                   {member.locationName && (
                     <p className="text-sm text-gray-300 flex items-center">
                       <svg className="w-4 h-4 mr-2 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,11 +298,7 @@ export const MembersManagement = ({
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Member ID: {member.id}</span>
-                    <span className={`px-2 py-1 rounded-full ${
-                      member.active 
-                        ? 'bg-green-500/20 text-green-300' 
-                        : 'bg-red-500/20 text-red-300'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full ${member.active ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
                       {member.active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
