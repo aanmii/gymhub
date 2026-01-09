@@ -49,22 +49,30 @@ export const AppointmentsManagement = ({
     if (!locationId) fetchLocations();
   }, [locationId, filterView]);
 
-  const fetchAppointments = async () => {
-    try {
-      let endpoint = '/appointments';
-      if (locationId) {
-        endpoint = filterView === 'upcoming'
-          ? `/appointments/location/${locationId}/upcoming`
-          : `/appointments/location/${locationId}`;
-      } else if (filterView === 'available') {
-        endpoint = '/appointments/available';
-      }
-      const response = await api.get<AppointmentResponse[]>(endpoint);
-      setAppointments(response.data);
-    } catch (err: any) {
-      console.error('Failed to fetch appointments:', err);
+const fetchAppointments = async () => {
+  try {
+    let endpoint = '/appointments';
+    if (locationId) {
+      endpoint = filterView === 'upcoming'
+        ? `/appointments/location/${locationId}/upcoming`
+        : `/appointments/location/${locationId}`;
+    } else if (filterView === 'available') {
+      endpoint = '/appointments/available';
     }
-  };
+
+    const response = await api.get<AppointmentResponse[]>(endpoint);
+
+    const mappedAppointments = response.data.map(a => ({
+      ...a,
+      currentParticipants: (a as any).currentBookings || 0, 
+      serviceName: a.serviceName, 
+    }));
+
+    setAppointments(mappedAppointments);
+  } catch (err: any) {
+    console.error('Failed to fetch appointments:', err);
+  }
+};
 
   const fetchServices = async () => {
     try {
