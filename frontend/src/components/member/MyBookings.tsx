@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
-import type { BookingResponse } from '../../types';
+
+export interface BookingResponse {
+  id: number;
+  appointmentId: number;
+  appointmentStartTime: string;
+  appointmentEndTime: string;
+  serviceName: string;
+  locationName: string;
+  memberId: number;
+  memberName?: string;
+  status: string;
+  createdAt: string;
+  cancelledAt?: string;
+}
 
 export const MyBookings = () => {
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
@@ -27,9 +40,7 @@ export const MyBookings = () => {
   };
 
   const handleCancel = async (bookingId: number) => {
-    if (!window.confirm('Are you sure you want to cancel this booking? Your credit will be refunded.')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to cancel this booking? Your credit will be refunded.')) return;
 
     setCancellingId(bookingId);
     setError('');
@@ -49,7 +60,10 @@ export const MyBookings = () => {
   };
 
   const formatDateTime = (dateTimeString: string) => {
+    if (!dateTimeString) return 'N/A';
     const date = new Date(dateTimeString);
+    if (isNaN(date.getTime())) return 'N/A';
+
     return date.toLocaleString('en-US', {
       weekday: 'short',
       month: 'short',
@@ -84,22 +98,15 @@ export const MyBookings = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-white flex items-center">
-          <svg className="w-6 h-6 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-          My Bookings ({bookings.length})
-        </h3>
-      </div>
+      <h3 className="text-2xl font-bold text-white">
+        My Bookings ({bookings.length})
+      </h3>
 
-      {/* Alerts */}
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 backdrop-blur-sm">
           <div className="text-sm text-red-200">{error}</div>
         </div>
       )}
-
       {success && (
         <div className="bg-green-500/10 border border-green-500/50 rounded-xl p-4 backdrop-blur-sm">
           <div className="text-sm text-green-200">{success}</div>
@@ -107,15 +114,7 @@ export const MyBookings = () => {
       )}
 
       {bookings.length === 0 ? (
-        <div className="glass rounded-2xl p-12 text-center">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-purple-500/20 flex items-center justify-center">
-            <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          </div>
-          <p className="text-gray-400 mb-2">You haven't booked any appointments yet.</p>
-          <p className="text-sm text-gray-500">Head to "Book Appointments" to get started!</p>
-        </div>
+        <p className="text-gray-400">You haven't booked any appointments yet.</p>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           {bookings.map((booking) => {
@@ -123,16 +122,15 @@ export const MyBookings = () => {
             const canCancel = booking.status.toLowerCase() === 'confirmed';
 
             return (
-              <div
-                key={booking.id}
-                className="glass-dark rounded-2xl p-6 card-hover"
-              >
+              <div key={booking.id} className="glass-dark rounded-2xl p-6 card-hover">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
+                  <div>
                     <h4 className="text-xl font-bold text-white mb-1">
-                      {booking.appointmentDetails}
+                      {booking.serviceName} @ {booking.locationName}
                     </h4>
-                    <p className="text-sm text-gray-400">Booking ID: {booking.id}</p>
+                    <p className="text-sm text-gray-400">
+                      {formatDateTime(booking.appointmentStartTime)}
+                    </p>
                   </div>
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
@@ -143,42 +141,15 @@ export const MyBookings = () => {
                   </span>
                 </div>
 
-                <div className="space-y-3 mb-4">
-                  <p className="text-sm text-gray-300 flex items-center">
-                    <svg className="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Booked: {formatDateTime(booking.bookingTime)}
-                  </p>
-                  <p className="text-sm text-gray-300 flex items-center">
-                    <svg className="w-4 h-4 mr-2 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Booked by: {booking.userName}
-                  </p>
-                </div>
-
-                {canCancel && (
+                {canCancel ? (
                   <button
                     onClick={() => handleCancel(booking.id)}
                     disabled={isCancelling}
                     className="w-full px-4 py-3 bg-red-500/20 text-red-300 rounded-xl hover:bg-red-500/30 border border-red-500/30 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isCancelling ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Cancelling...
-                      </span>
-                    ) : (
-                      'Cancel Booking'
-                    )}
+                    {isCancelling ? 'Cancelling...' : 'Cancel Booking'}
                   </button>
-                )}
-
-                {!canCancel && (
+                ) : (
                   <div className="w-full px-4 py-3 bg-gray-500/20 text-gray-400 rounded-xl border border-gray-500/30 text-center text-sm">
                     Cannot cancel {booking.status.toLowerCase()} booking
                   </div>

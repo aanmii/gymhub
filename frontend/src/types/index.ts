@@ -180,12 +180,16 @@ export interface Booking {
 
 export interface BookingResponse {
     id: number;
-    userId: number;
-    userName: string;
     appointmentId: number;
-    appointmentDetails: string;
-    bookingTime: string;
+    appointmentStartTime: string;
+    appointmentEndTime: string;
+    serviceName: string;
+    locationName: string;
+    memberId: number;
+    memberName?: string;
     status: string;
+    createdAt: string;
+    cancelledAt?: string;
 }
 
 export interface CreateBookingRequest {
