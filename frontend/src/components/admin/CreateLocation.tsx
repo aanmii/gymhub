@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import type { CreateLocationRequest, Location } from '../../types';
 
 export const CreateLocation = () => {
+  const navigate = useNavigate();
   const [locations, setLocations] = useState<Location[]>([]);
   const [formData, setFormData] = useState<CreateLocationRequest>({
     name: '',
@@ -41,6 +43,21 @@ export const CreateLocation = () => {
       setError(err.response?.data?.message || 'Failed to create location');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/locations/${id}`);
+      setSuccess('Location deleted successfully!');
+      fetchLocations();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete location');
     }
   };
 
@@ -139,11 +156,14 @@ export const CreateLocation = () => {
             {locations.map((location) => (
               <div
                 key={location.id}
-                className="glass-dark rounded-xl p-6 card-hover"
+                className="glass-dark rounded-xl p-6 card-hover group cursor-pointer"
+                onClick={() => navigate(`/admin/locations/${location.id}`)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h4 className="text-lg font-bold text-white mb-1">{location.name}</h4>
+                    <h4 className="text-lg font-bold text-white mb-1 group-hover:text-purple-400 transition-colors">
+                      {location.name}
+                    </h4>
                     <p className="text-sm text-gray-400 flex items-center">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -161,9 +181,31 @@ export const CreateLocation = () => {
                     {location.active ? '✓ Active' : '✗ Inactive'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs text-gray-500">
+
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
                   <span>ID: {location.id}</span>
                   <span>{new Date(location.createdAt).toLocaleDateString()}</span>
+                </div>
+
+                <div className="flex space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/admin/locations/${location.id}`);
+                    }}
+                    className="flex-1 px-3 py-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 border border-purple-500/30 transition-all text-sm font-semibold"
+                  >
+                    View Details
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(location.id, location.name);
+                    }}
+                    className="px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 border border-red-500/30 transition-all text-sm font-semibold"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}

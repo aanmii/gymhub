@@ -95,35 +95,41 @@ export const Home = () => {
             )}
 
             {isEmployee && (
-              <div className="glass-dark rounded-xl p-6 opacity-50 cursor-not-allowed">
+              <a
+                href="/employee"
+                className="glass-dark rounded-xl p-6 card-hover cursor-pointer group"
+              >
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white">Manage Members</h3>
-                    <p className="text-sm text-gray-400">Coming soon...</p>
+                    <h3 className="font-semibold text-white">Employee Dashboard</h3>
+                    <p className="text-sm text-gray-400">Manage your location</p>
                   </div>
                 </div>
-              </div>
+              </a>
             )}
 
             {isMember && (
-              <div className="glass-dark rounded-xl p-6 opacity-50 cursor-not-allowed">
+              <a
+                href="/member"
+                className="glass-dark rounded-xl p-6 card-hover cursor-pointer group"
+              >
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <svg className="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white">Book Sessions</h3>
-                    <p className="text-sm text-gray-400">Coming soon...</p>
+                    <h3 className="font-semibold text-white">Member Dashboard</h3>
+                    <p className="text-sm text-gray-400">Browse & book sessions</p>
                   </div>
                 </div>
-              </div>
+              </a>
             )}
           </div>
         </div>
