@@ -4,7 +4,10 @@ import { Login } from './components/auth/Login';
 import { Register } from './components/auth/Register';
 import { Navbar } from './components/common/Navbar';
 import { PrivateRoute } from './components/common/PrivateRoute';
+import { EmployeeDashboard } from './components/employee/EmployeeDashboard';
 import { Home } from './components/Home';
+import { MemberDashboard } from './components/member/MemberDashboard';
+import { LocationDetails } from './components/shared/LocationDetails';
 import { AuthProvider } from './contexts/AuthContext';
 import { Role } from './types';
 
@@ -35,6 +38,35 @@ function App() {
               element={
                 <PrivateRoute requiredRole={Role.ADMIN}>
                   <AdminDashboard />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/admin/locations/:id"
+              element={
+                <PrivateRoute requiredRole={Role.ADMIN}>
+                  <LocationDetails />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Employee routes */}
+            <Route
+              path="/employee"
+              element={
+                <PrivateRoute requiredRole={Role.EMPLOYEE}>
+                  <EmployeeDashboard />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Member routes */}
+            <Route
+              path="/member"
+              element={
+                <PrivateRoute requiredRole={Role.MEMBER}>
+                  <MemberDashboard />
                 </PrivateRoute>
               }
             />

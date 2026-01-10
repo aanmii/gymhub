@@ -18,5 +18,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByLocationId(Long locationId);
     List<User> findByLocationIdAndRole(Long locationId, Role role);
     List<User> findByActive(Boolean active);
+    List<User> findAllByRoleAndLocationId(Role role, Long locationId);
 
 }

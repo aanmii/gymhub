@@ -22,6 +22,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
+
 
 @Service
 public class AuthService {
@@ -137,5 +140,23 @@ public class AuthService {
                 .locationName(user.getLocation() != null ? user.getLocation().getName() : null)
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    public List<UserResponse> getMembersByLocation(Long locationId) {
+        return userRepository.findAllByRoleAndLocationId(Role.MEMBER, locationId)
+                .stream()
+                .map(user -> UserResponse.builder()
+                        .id(user.getId())
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .email(user.getEmail())
+                        .phone(user.getPhone())
+                        .role(user.getRole())
+                        .active(user.getActive())
+                        .locationId(user.getLocation() != null ? user.getLocation().getId() : null)
+                        .locationName(user.getLocation() != null ? user.getLocation().getName() : null)
+                        .createdAt(user.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

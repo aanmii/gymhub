@@ -1,18 +1,24 @@
 package com.andrea360.gymhub.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-/**
- * Entity representing a member's booking for an appointment
- */
 @Entity
-@Table(name = "bookings", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"appointment_id", "member_id"})
-})
+@Table(
+        name = "bookings",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_booking_appointment_member",
+                        columnNames = {"appointment_id", "member_id"}
+                )
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,34 +31,39 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id", nullable = false)
-    @ToString.Exclude
     private Appointment appointment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
-    @ToString.Exclude
-    private User member; // Member who made the booking
+    private User member;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_credit_id", nullable = false)
-    @ToString.Exclude
-    private MemberCredit usedCredit; // Credit used for this booking
+    @JoinColumn(name = "used_credit_id", nullable = false)
+    private MemberCredit usedCredit;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(name = "status", nullable = false)
     @Builder.Default
     private BookingStatus status = BookingStatus.CONFIRMED;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column
+    @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     public enum BookingStatus {
         CONFIRMED,
-        CANCELLED,
-        COMPLETED
+        CANCELLED
+    }
+
+
+    public boolean isActive() {
+        return status == BookingStatus.CONFIRMED;
     }
 }
