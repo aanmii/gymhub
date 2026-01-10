@@ -132,21 +132,24 @@ export interface Appointment {
     createdAt: string;
     updatedAt: string;
 }
-
 export interface AppointmentResponse {
     id: number;
-    startTime: string;
+    startTime: string; 
     endTime: string;
     locationId: number;
     locationName: string;
-    gymServiceId: number; 
-    serviceName: string;
+    gymServiceId: number;
+    gymServiceName: string; 
     maxCapacity: number;
-    currentParticipants: number;
+    currentBookings: number; 
+    availableSpots: number;
+    isFull: boolean;
+    createdById: number;
+    createdByName: string;
+    active: boolean;
     createdAt: string;
     updatedAt: string;
 }
-
 export interface CreateAppointmentRequest {
     startTime: string;
     endTime: string;
@@ -235,3 +238,5 @@ export interface ErrorResponse {
     message: string;
     details?: Record<string, string>;
 }
+
+

@@ -1,5 +1,6 @@
 package com.andrea360.gymhub.service;
 
+import com.andrea360.gymhub.dto.AppointmentUpdateEvent;
 import com.andrea360.gymhub.dto.BookingResponse;
 import com.andrea360.gymhub.dto.CreateBookingRequest;
 import com.andrea360.gymhub.entity.Appointment;
@@ -15,6 +16,7 @@ import com.andrea360.gymhub.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class BookingService {
     private final AppointmentRepository appointmentRepository;
     private final MemberCreditRepository memberCreditRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public BookingResponse createBooking(CreateBookingRequest request, Long memberId) {
@@ -43,13 +46,17 @@ public class BookingService {
         User member = userRepository.findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-
         if (appointment.isFull()) {
             throw new BadRequestException("Appointment is full");
         }
 
+        Boolean alreadyBooked = bookingRepository.existsByAppointmentIdAndMemberIdAndStatus(
+                appointment.getId(),
+                memberId
+        );
 
-        if (bookingRepository.existsByAppointmentIdAndMemberId(appointment.getId(), memberId)) {
+        if (Boolean.TRUE.equals(alreadyBooked)) {
+            logger.warn("Member {} already booked appointment {}", memberId, request.getAppointmentId());
             throw new BadRequestException("You have already booked this appointment");
         }
 
@@ -57,9 +64,16 @@ public class BookingService {
             throw new BadRequestException("Cannot book past appointments");
         }
 
+
         MemberCredit credit = memberCreditRepository
-                .findFirstByMemberIdAndGymServiceIdAndUsedFalseOrderByPurchasedAtAsc(memberId, appointment.getGymService().getId())
+                .findFirstByMemberIdAndGymServiceIdAndUsedFalseOrderByPurchasedAtAsc(
+                        memberId,
+                        appointment.getGymService().getId()
+                )
                 .orElseThrow(() -> new BadRequestException("No available credits for this service. Please purchase credits first."));
+
+        logger.info("All validations passed. Creating booking...");
+
 
         Booking booking = Booking.builder()
                 .appointment(appointment)
@@ -68,19 +82,53 @@ public class BookingService {
                 .status(Booking.BookingStatus.CONFIRMED)
                 .build();
 
-        booking = bookingRepository.save(booking);
+        try {
+            booking = bookingRepository.save(booking);
+            logger.info("Booking saved with id: {}", booking.getId());
+        } catch (Exception e) {
+            logger.error("Failed to save booking: {}", e.getMessage(), e);
+            throw new BadRequestException("Failed to create booking. Please try again.");
+        }
 
-        // Mark credit as used
-        credit.setUsed(true);
-        credit.setUsedAt(LocalDateTime.now());
-        memberCreditRepository.save(credit);
+        try {
+            credit.setUsed(true);
+            credit.setUsedAt(LocalDateTime.now());
+            memberCreditRepository.save(credit);
+            logger.info("Credit marked as used: {}", credit.getId());
+        } catch (Exception e) {
+            logger.error("Failed to mark credit as used: {}", e.getMessage(), e);
+            appointment.decrementBookings();
+            appointmentRepository.save(appointment);
+            bookingRepository.delete(booking);
+            throw new BadRequestException("Failed to process credit. Booking cancelled.");
+        }
 
-        // Increment appointment bookings count
-        appointment.incrementBookings();
-        appointmentRepository.save(appointment);
 
-        logger.info("Booking created with id: {}", booking.getId());
+        try {
+            appointment.incrementBookings();
+            appointmentRepository.save(appointment);
+            logger.info("Appointment bookings updated: {}/{}",
+                    appointment.getCurrentBookings(),
+                    appointment.getMaxCapacity());
+        } catch (Exception e) {
+            logger.error("Failed to update appointment bookings: {}", e.getMessage(), e);
 
+            credit.setUsed(false);
+            credit.setUsedAt(null);
+            memberCreditRepository.save(credit);
+            bookingRepository.delete(booking);
+            throw new BadRequestException("Failed to update appointment. Booking cancelled.");
+        }
+
+
+        try {
+            sendAppointmentUpdate(appointment, "BOOKING_CREATED");
+        } catch (Exception e) {
+            logger.warn("Failed to send WebSocket update: {}", e.getMessage());
+
+        }
+
+        logger.info("✅ Booking successfully created with id: {}", booking.getId());
         return mapToResponse(booking);
     }
 
@@ -98,6 +146,8 @@ public class BookingService {
 
     @Transactional
     public void cancelBooking(Long bookingId, Long memberId) {
+        logger.info("Cancelling booking: {} for member: {}", bookingId, memberId);
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
@@ -109,7 +159,6 @@ public class BookingService {
             throw new BadRequestException("Booking is already cancelled");
         }
 
-        // Check if appointment is in the past
         if (booking.getAppointment().getStartTime().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Cannot cancel past bookings");
         }
@@ -117,19 +166,52 @@ public class BookingService {
         booking.setStatus(Booking.BookingStatus.CANCELLED);
         booking.setCancelledAt(LocalDateTime.now());
         bookingRepository.save(booking);
+        logger.info("Booking marked as cancelled: {}", bookingId);
 
-        // Return credit to member
         MemberCredit credit = booking.getUsedCredit();
         credit.setUsed(false);
         credit.setUsedAt(null);
         memberCreditRepository.save(credit);
+        logger.info("Credit returned to member: {}", credit.getId());
 
-        // Decrement appointment bookings
+
         Appointment appointment = booking.getAppointment();
         appointment.decrementBookings();
         appointmentRepository.save(appointment);
+        logger.info("Appointment bookings decremented: {}/{}",
+                appointment.getCurrentBookings(),
+                appointment.getMaxCapacity());
 
-        logger.info("Booking cancelled: {}", bookingId);
+        try {
+            sendAppointmentUpdate(appointment, "BOOKING_CANCELLED");
+        } catch (Exception e) {
+            logger.warn("Failed to send WebSocket update: {}", e.getMessage());
+        }
+
+        logger.info("✅ Booking successfully cancelled: {}", bookingId);
+    }
+
+    private void sendAppointmentUpdate(Appointment appointment, String eventType) {
+        AppointmentUpdateEvent event = AppointmentUpdateEvent.builder()
+                .appointmentId(appointment.getId())
+                .currentParticipants(appointment.getCurrentBookings())
+                .maxCapacity(appointment.getMaxCapacity())
+                .eventType(eventType)
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        messagingTemplate.convertAndSend(
+                "/topic/appointments/" + appointment.getId(),
+                event
+        );
+
+        messagingTemplate.convertAndSend("/topic/appointments", event);
+
+        logger.info("📡 WebSocket update sent - Appointment {}: {} (participants: {}/{})",
+                appointment.getId(),
+                eventType,
+                appointment.getCurrentBookings(),
+                appointment.getMaxCapacity());
     }
 
     private BookingResponse mapToResponse(Booking booking) {

@@ -13,12 +13,33 @@ import java.util.Optional;
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByMemberId(Long memberId);
+
     List<Booking> findByAppointmentId(Long appointmentId);
+
     List<Booking> findByMemberIdAndStatus(Long memberId, Booking.BookingStatus status);
-    Boolean existsByAppointmentIdAndMemberId(Long appointmentId, Long memberId);
-    Optional<Booking> findByAppointmentIdAndMemberId(Long appointmentId, Long memberId);
-    @Query("SELECT COUNT(b) FROM Booking b WHERE b.appointment.id = :appointmentId AND b.status = 'CONFIRMED'")
+
+
+    @Query("SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END FROM Booking b " +
+            "WHERE b.appointment.id = :appointmentId " +
+            "AND b.member.id = :memberId " +
+            "AND b.status = 'CONFIRMED'")
+    Boolean existsByAppointmentIdAndMemberIdAndStatus(
+            @Param("appointmentId") Long appointmentId,
+            @Param("memberId") Long memberId);
+
+    Optional<Booking> findByAppointmentIdAndMemberIdAndStatus(
+            Long appointmentId,
+            Long memberId,
+            Booking.BookingStatus status
+    );
+
+    @Query("SELECT COUNT(b) FROM Booking b " +
+            "WHERE b.appointment.id = :appointmentId " +
+            "AND b.status = 'CONFIRMED'")
     Long countConfirmedBookingsByAppointment(@Param("appointmentId") Long appointmentId);
-    @Query("SELECT b FROM Booking b WHERE b.appointment.id = :appointmentId AND b.status = 'CONFIRMED'")
+
+    @Query("SELECT b FROM Booking b " +
+            "WHERE b.appointment.id = :appointmentId " +
+            "AND b.status = 'CONFIRMED'")
     List<Booking> findConfirmedBookingsByAppointment(@Param("appointmentId") Long appointmentId);
 }

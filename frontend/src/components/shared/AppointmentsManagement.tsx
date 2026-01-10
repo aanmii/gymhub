@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import api from '../../services/api';
 import type { AppointmentResponse, CreateAppointmentRequest, GymServiceResponse, Location } from '../../types';
+import { formatDateTimeEU, getCapacityColor, normalizeAppointments } from '../../utils/appointmentMapper';
 
 interface AppointmentsManagementProps {
   locationId?: number;
@@ -43,36 +45,56 @@ export const AppointmentsManagement = ({
   const [success, setSuccess] = useState('');
   const [filterView] = useState<'all' | 'upcoming' | 'available'>('upcoming');
 
+  
+  const handleAppointmentUpdate = useCallback((update: {
+    appointmentId: number;
+    currentParticipants: number;
+    maxCapacity: number;
+    eventType: string;
+  }) => {
+    console.log('🔄 Employee view - Real-time update received:', update);
+
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt.id === update.appointmentId
+          ? {
+              ...apt,
+              currentBookings: update.currentParticipants,
+              maxCapacity: update.maxCapacity,
+              availableSpots: update.maxCapacity - update.currentParticipants,
+              isFull: update.currentParticipants >= update.maxCapacity,
+            }
+          : apt
+      )
+    );
+  }, []);
+
+  const { connected } = useWebSocket(handleAppointmentUpdate);
+
   useEffect(() => {
     fetchAppointments();
     fetchServices();
     if (!locationId) fetchLocations();
   }, [locationId, filterView]);
 
-const fetchAppointments = async () => {
-  try {
-    let endpoint = '/appointments';
-    if (locationId) {
-      endpoint = filterView === 'upcoming'
-        ? `/appointments/location/${locationId}/upcoming`
-        : `/appointments/location/${locationId}`;
-    } else if (filterView === 'available') {
-      endpoint = '/appointments/available';
+  const fetchAppointments = useCallback(async () => {
+    try {
+      let endpoint = '/appointments';
+      if (locationId) {
+        endpoint = filterView === 'upcoming'
+          ? `/appointments/location/${locationId}/upcoming`
+          : `/appointments/location/${locationId}`;
+      } else if (filterView === 'available') {
+        endpoint = '/appointments/available';
+      }
+
+      const response = await api.get<AppointmentResponse[]>(endpoint);
+      setAppointments(normalizeAppointments(response.data));
+    } catch (err: any) {
+      console.error('Failed to fetch appointments:', err);
+      setError('Failed to load appointments');
     }
-
-    const response = await api.get<AppointmentResponse[]>(endpoint);
-
-    const mappedAppointments = response.data.map(a => ({
-      ...a,
-      currentParticipants: (a as any).currentBookings || 0, 
-      serviceName: a.serviceName, 
-    }));
-
-    setAppointments(mappedAppointments);
-  } catch (err: any) {
-    console.error('Failed to fetch appointments:', err);
-  }
-};
+  }, [locationId, filterView]);
 
   const fetchServices = async () => {
     try {
@@ -99,7 +121,7 @@ const fetchAppointments = async () => {
 
   const handleStartTimeChange = (time: Date | null) => {
     setFormData(prev => ({ ...prev, startTimeObj: time }));
-    // Ako endTime je ranije od novog startTime, resetuj endTime
+    // Resetuj end time ako je pre novog start time
     if (time && formData.endTimeObj && formData.endTimeObj <= time) {
       setFormData(prev => ({ ...prev, endTimeObj: null }));
     }
@@ -121,6 +143,12 @@ const fetchAppointments = async () => {
       return;
     }
 
+    if (formData.endTimeObj <= formData.startTimeObj) {
+      setError('End time must be after start time');
+      setLoading(false);
+      return;
+    }
+
     const year = formData.date.getFullYear();
     const month = String(formData.date.getMonth() + 1).padStart(2, '0');
     const day = String(formData.date.getDate()).padStart(2, '0');
@@ -130,9 +158,11 @@ const fetchAppointments = async () => {
     const endMinute = String(formData.endTimeObj.getMinutes()).padStart(2, '0');
 
     const payload: CreateAppointmentRequest = {
-      ...formData,
       startTime: `${year}-${month}-${day}T${startHour}:${startMinute}:00`,
       endTime: `${year}-${month}-${day}T${endHour}:${endMinute}:00`,
+      locationId: formData.locationId,
+      gymServiceId: formData.gymServiceId,
+      maxCapacity: formData.maxCapacity,
     };
 
     try {
@@ -144,18 +174,7 @@ const fetchAppointments = async () => {
         setSuccess('Appointment created successfully! 🎉');
       }
 
-      setFormData({
-        startTime: '',
-        endTime: '',
-        locationId: locationId || user?.locationId || 0,
-        gymServiceId: 0,
-        maxCapacity: 10,
-        date: null,
-        startTimeObj: null,
-        endTimeObj: null,
-      });
-      setShowForm(false);
-      setEditingAppointment(null);
+      resetForm();
       fetchAppointments();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
@@ -163,6 +182,21 @@ const fetchAppointments = async () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      startTime: '',
+      endTime: '',
+      locationId: locationId || user?.locationId || 0,
+      gymServiceId: 0,
+      maxCapacity: 10,
+      date: null,
+      startTimeObj: null,
+      endTimeObj: null,
+    });
+    setShowForm(false);
+    setEditingAppointment(null);
   };
 
   const handleEdit = (appointment: AppointmentResponse) => {
@@ -195,21 +229,14 @@ const fetchAppointments = async () => {
     }
   };
 
-  const formatDateTimeEU = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return `${String(date.getDate()).padStart(2,'0')}/${
-      String(date.getMonth()+1).padStart(2,'0')}/${
-      date.getFullYear()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+  const formatDateTimeEUHelper = (dateTimeString: string) => {
+    return formatDateTimeEU(dateTimeString);
   };
 
-  const getCapacityColor = (current: number, max: number) => {
-    const percentage = (current / max) * 100;
-    if (percentage >= 90) return 'text-red-400';
-    if (percentage >= 70) return 'text-yellow-400';
-    return 'text-green-400';
+  const getCapacityColorHelper = (current: number, max: number) => {
+    return getCapacityColor(current, max);
   };
 
-  // Min/max times za start i end
   const today = new Date();
   const minStartTime = new Date(today);
   minStartTime.setHours(6,0,0,0);
@@ -221,25 +248,30 @@ const fetchAppointments = async () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h3 className="text-2xl font-bold text-white flex items-center">
+          <svg className="w-6 h-6 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
           Appointments ({appointments.length})
+          {connected && (
+            <span className="ml-3 flex items-center">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              <span className="ml-2 text-xs text-green-400">Live</span>
+            </span>
+          )}
         </h3>
 
         <div className="flex items-center gap-4">
           {canCreate && (
             <button
               onClick={() => {
-                setShowForm(!showForm);
-                setEditingAppointment(null);
-                setFormData({
-                  startTime: '',
-                  endTime: '',
-                  locationId: locationId || user?.locationId || 0,
-                  gymServiceId: 0,
-                  maxCapacity: 10,
-                  date: null,
-                  startTimeObj: null,
-                  endTimeObj: null,
-                });
+                if (showForm) {
+                  resetForm();
+                } else {
+                  setShowForm(true);
+                }
               }}
               className="gradient-primary px-4 py-2 rounded-xl text-white font-semibold shadow-lg hover:scale-[1.02] transition-all"
             >
@@ -269,7 +301,6 @@ const fetchAppointments = async () => {
           </h4>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid md:grid-cols-3 gap-4">
-              {/* Date Picker */}
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-2">Date</label>
                 <DatePicker
@@ -282,7 +313,6 @@ const fetchAppointments = async () => {
                 />
               </div>
 
-              {/* Start Time */}
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-2">Start Time</label>
                 <DatePicker
@@ -299,7 +329,6 @@ const fetchAppointments = async () => {
                 />
               </div>
 
-              {/* End Time */}
               <div>
                 <label className="block text-sm font-medium text-gray-200 mb-2">End Time</label>
                 <DatePicker
@@ -317,7 +346,6 @@ const fetchAppointments = async () => {
               </div>
             </div>
 
-            {/* Location and Service */}
             <div className="grid md:grid-cols-2 gap-4 mt-4">
               {!locationId && (
                 <div>
@@ -362,7 +390,6 @@ const fetchAppointments = async () => {
               </div>
             </div>
 
-            {/* Max Capacity */}
             <div>
               <label className="block text-sm font-medium text-gray-200 mb-2">Max Capacity</label>
               <input
@@ -406,25 +433,25 @@ const fetchAppointments = async () => {
               <div key={appointment.id} className="glass-dark rounded-xl p-6 card-hover">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h4 className="text-lg font-bold text-white mb-1">{appointment.serviceName}</h4>
+                    <h4 className="text-lg font-bold text-white mb-1">{appointment.gymServiceName}</h4>
                     <p className="text-sm text-gray-400">{appointment.locationName}</p>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    appointment.currentParticipants >= appointment.maxCapacity
+                    appointment.isFull
                       ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                       : 'bg-green-500/20 text-green-300 border border-green-500/30'
                   }`}>
-                    {appointment.currentParticipants >= appointment.maxCapacity ? 'Full' : 'Available'}
+                    {appointment.isFull ? 'Full' : 'Available'}
                   </span>
                 </div>
 
                 <div className="space-y-2 mb-4">
                   <p className="text-sm text-gray-300 flex items-center">
-                    {formatDateTimeEU(appointment.startTime)}
+                    {formatDateTimeEUHelper(appointment.startTime)}
                   </p>
                   <p className="text-sm text-gray-300 flex items-center">
-                    <span className={getCapacityColor(appointment.currentParticipants, appointment.maxCapacity)}>
-                      {appointment.currentParticipants} / {appointment.maxCapacity} participants
+                    <span className={getCapacityColorHelper(appointment.currentBookings || 0, appointment.maxCapacity)}>
+                      {appointment.currentBookings || 0} / {appointment.maxCapacity} participants
                     </span>
                   </p>
                 </div>

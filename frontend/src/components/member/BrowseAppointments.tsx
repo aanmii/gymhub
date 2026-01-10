@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import api from '../../services/api';
 import type { AppointmentResponse } from '../../types';
+import { getCapacityColor, normalizeAppointments } from '../../utils/appointmentMapper';
 
 export const BrowseAppointments = () => {
   const { user: _user } = useAuth();
@@ -12,16 +14,11 @@ export const BrowseAppointments = () => {
   const [bookingLoading, setBookingLoading] = useState<number | null>(null);
   const [userCredits, setUserCredits] = useState<Map<number, number>>(new Map());
 
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
-  
       const response = await api.get<AppointmentResponse[]>('/appointments/available');
-      setAppointments(response.data);
+      setAppointments(normalizeAppointments(response.data));
 
       const creditsMap = new Map<number, number>();
       for (const apt of response.data) {
@@ -41,11 +38,40 @@ export const BrowseAppointments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const handleAppointmentUpdate = useCallback((update: {
+    appointmentId: number;
+    currentParticipants: number;
+    maxCapacity: number;
+    eventType: string;
+  }) => {
+    console.log('🔄 Real-time update received:', update);
+
+    setAppointments(prev =>
+      prev.map(apt =>
+        apt.id === update.appointmentId
+          ? {
+              ...apt,
+              currentBookings: update.currentParticipants, 
+              maxCapacity: update.maxCapacity,
+              availableSpots: update.maxCapacity - update.currentParticipants,
+              isFull: update.currentParticipants >= update.maxCapacity,
+            }
+          : apt
+      )
+    );
+  }, []);
+
+  const { connected } = useWebSocket(handleAppointmentUpdate);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
 
   const handleBook = async (appointment: AppointmentResponse) => {
     const credits = userCredits.get(appointment.gymServiceId) || 0;
-    
+
     if (credits <= 0) {
       setError('You need to purchase credits for this service first!');
       setTimeout(() => setError(''), 5000);
@@ -57,14 +83,20 @@ export const BrowseAppointments = () => {
     setSuccess('');
 
     try {
-      await api.post('/bookings', {
-        appointmentId: appointment.id,
-      });
+      await api.post('/bookings', { appointmentId: appointment.id });
 
-      setSuccess(`Successfully booked ${appointment.serviceName}! 🎉`);
+      setSuccess(`Successfully booked ${appointment.gymServiceName}! 🎉`);
 
-      await fetchAppointments();
-      
+ 
+      try {
+        const creditResponse = await api.get<{ availableCredits: number }>(
+          `/payments/credits/${appointment.gymServiceId}`
+        );
+        setUserCredits(prev => new Map(prev).set(appointment.gymServiceId, creditResponse.data.availableCredits));
+      } catch (err) {
+        console.error('Failed to refresh credits:', err);
+      }
+
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to book appointment');
@@ -74,23 +106,9 @@ export const BrowseAppointments = () => {
     }
   };
 
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
-  const getCapacityColor = (current: number, max: number) => {
-    const percentage = (current / max) * 100;
-    if (percentage >= 90) return 'text-red-400';
-    if (percentage >= 70) return 'text-yellow-400';
-    return 'text-green-400';
+  const getCapacityColorHelper = (current: number, max: number) => {
+    return getCapacityColor(current, max);
   };
 
   if (loading) {
@@ -110,6 +128,15 @@ export const BrowseAppointments = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           Available Appointments ({appointments.length})
+          {connected && (
+            <span className="ml-3 flex items-center">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              <span className="ml-2 text-xs text-green-400">Live</span>
+            </span>
+          )}
         </h3>
       </div>
 
@@ -139,18 +166,18 @@ export const BrowseAppointments = () => {
         <div className="grid md:grid-cols-2 gap-6">
           {appointments.map((appointment) => {
             const credits = userCredits.get(appointment.gymServiceId) || 0;
-            const canBook = credits > 0;
-            const isFull = appointment.currentParticipants >= appointment.maxCapacity;
+            const isFull = appointment.isFull === true;
+            const canBook = credits > 0 && !isFull;
             const isBooking = bookingLoading === appointment.id;
 
             return (
               <div
                 key={appointment.id}
-                className="glass-dark rounded-2xl p-6 card-hover"
+                className="glass-dark rounded-2xl p-6 card-hover transition-all duration-300"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h4 className="text-xl font-bold text-white mb-1">{appointment.serviceName}</h4>
+                    <h4 className="text-xl font-bold text-white mb-1">{appointment.gymServiceName}</h4>
                     <p className="text-sm text-gray-400 flex items-center">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -159,7 +186,7 @@ export const BrowseAppointments = () => {
                     </p>
                   </div>
                   <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
                       isFull
                         ? 'bg-red-500/20 text-red-300 border border-red-500/30'
                         : 'bg-green-500/20 text-green-300 border border-green-500/30'
@@ -174,14 +201,14 @@ export const BrowseAppointments = () => {
                     <svg className="w-4 h-4 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    {formatDateTime(appointment.startTime)}
+                    {appointment.startTime}
                   </p>
                   <p className="text-sm text-gray-300 flex items-center">
                     <svg className="w-4 h-4 mr-2 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span className={getCapacityColor(appointment.currentParticipants, appointment.maxCapacity)}>
-                      {appointment.currentParticipants} / {appointment.maxCapacity} spots taken
+                    <span className={getCapacityColorHelper(appointment.currentBookings || 0, appointment.maxCapacity)}>
+                      {appointment.currentBookings || 0} / {appointment.maxCapacity} spots taken
                     </span>
                   </p>
                   <p className="text-sm text-gray-300 flex items-center">
@@ -194,7 +221,7 @@ export const BrowseAppointments = () => {
 
                 <button
                   onClick={() => handleBook(appointment)}
-                  disabled={!canBook || isFull || isBooking}
+                  disabled={!canBook || isBooking}
                   className="w-full gradient-primary py-3 px-4 rounded-xl text-white font-semibold shadow-lg hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {isBooking ? (
@@ -207,7 +234,7 @@ export const BrowseAppointments = () => {
                     </span>
                   ) : isFull ? (
                     'Full - Cannot Book'
-                  ) : !canBook ? (
+                  ) : !credits ? (
                     'No Credits - Purchase First'
                   ) : (
                     'Book This Appointment'
