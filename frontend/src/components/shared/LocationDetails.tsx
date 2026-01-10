@@ -210,10 +210,6 @@ export const LocationDetails = () => {
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400 mb-2">Location ID</p>
-                  <p className="text-lg font-semibold text-white">{location.id}</p>
-                </div>
-                <div>
                   <p className="text-sm text-gray-400 mb-2">Created</p>
                   <p className="text-lg font-semibold text-white">
                     {new Date(location.createdAt).toLocaleDateString()}

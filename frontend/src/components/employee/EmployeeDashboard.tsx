@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { AppointmentsManagement } from '../shared/AppointmentsManagement';
+import { BookingsManagement } from '../shared/BookingsManagement';
 import { MembersManagement } from '../shared/MembersManagement';
 import { ServicesManagement } from '../shared/ServicesManagement';
 
-type Tab = 'services' | 'appointments' | 'members';
+type Tab = 'bookings' | 'appointments' | 'services' | 'members';
 
 export const EmployeeDashboard = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>('appointments');
+  const [activeTab, setActiveTab] = useState<Tab>('bookings');
 
   const tabs: { id: Tab; name: string; icon: string }[] = [
+    { id: 'bookings', name: 'Bookings', icon: '📋' },
     { id: 'appointments', name: 'Appointments', icon: '📅' },
     { id: 'services', name: 'Services', icon: '🏋️' },
     { id: 'members', name: 'Members', icon: '👥' },
@@ -97,6 +99,9 @@ export const EmployeeDashboard = () => {
 
         {/* Content */}
         <div>
+          {activeTab === 'bookings' && (
+            <BookingsManagement locationId={user?.locationId} />
+          )}
           {activeTab === 'services' && (
             <ServicesManagement 
               locationId={user?.locationId} 

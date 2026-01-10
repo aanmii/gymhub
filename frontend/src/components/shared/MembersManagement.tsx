@@ -297,7 +297,6 @@ export const MembersManagement = ({
 
                 <div className="mt-4 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Member ID: {member.id}</span>
                     <span className={`px-2 py-1 rounded-full ${member.active ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
                       {member.active ? 'Active' : 'Inactive'}
                     </span>

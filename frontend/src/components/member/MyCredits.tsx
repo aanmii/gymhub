@@ -23,15 +23,12 @@ export const MyCredits = () => {
     try {
       setLoading(true);
       
-      // Fetch payments history
       const paymentsResponse = await api.get<PaymentResponse[]>('/payments/my');
       setPayments(paymentsResponse.data);
 
-      // Fetch services to get credit info
       const servicesResponse = await api.get<GymServiceResponse[]>('/services');
       setServices(servicesResponse.data);
 
-      // Fetch available credits for each service
       const creditsPromises = servicesResponse.data.map(async (service) => {
         try {
           const creditResponse = await api.get<{ availableCredits: number }>(
@@ -213,8 +210,7 @@ export const MyCredits = () => {
                   </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-400">
                     <span>{formatDate(payment.createdAt)}</span>
-                    <span>•</span>
-                    <span>ID: {payment.stripePaymentIntentId.slice(0, 16)}...</span>
+                  
                   </div>
                 </div>
                 <div className="text-right">

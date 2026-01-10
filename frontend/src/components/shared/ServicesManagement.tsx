@@ -93,18 +93,6 @@ export const ServicesManagement = ({
     setShowForm(true);
   };
 
-  const handleDeactivate = async (id: number) => {
-    if (!window.confirm('Are you sure you want to deactivate this service?')) return;
-    
-    try {
-      await api.delete(`/services/${id}`);
-      setSuccess('Service deactivated successfully!');
-      fetchServices();
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to deactivate service');
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -274,12 +262,7 @@ export const ServicesManagement = ({
                     >
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDeactivate(service.id)}
-                      className="flex-1 px-3 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 border border-red-500/30 transition-all text-sm font-semibold"
-                    >
-                      Deactivate
-                    </button>
+              
                   </div>
                 )}
               </div>

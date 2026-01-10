@@ -183,8 +183,7 @@ export const CreateLocation = () => {
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                  <span>ID: {location.id}</span>
-                  <span>{new Date(location.createdAt).toLocaleDateString()}</span>
+
                 </div>
 
                 <div className="flex space-x-2">
