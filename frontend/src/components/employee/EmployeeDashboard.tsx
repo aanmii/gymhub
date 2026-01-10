@@ -11,12 +11,41 @@ export const EmployeeDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('bookings');
 
-  const tabs: { id: Tab; name: string; icon: string }[] = [
-    { id: 'bookings', name: 'Bookings', icon: '📋' },
-    { id: 'appointments', name: 'Appointments', icon: '📅' },
-    { id: 'services', name: 'Services', icon: '🏋️' },
-    { id: 'members', name: 'Members', icon: '👥' },
+  const tabs: { id: Tab; name: string }[] = [
+    { id: 'bookings', name: 'Bookings' },
+    { id: 'appointments', name: 'Appointments' },
+    { id: 'services', name: 'Services' },
+    { id: 'members', name: 'Members' },
   ];
+
+  const getTabIcon = (tabId: Tab) => {
+    switch (tabId) {
+      case 'bookings':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+        );
+      case 'appointments':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        );
+      case 'services':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+        );
+      case 'members':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -85,14 +114,14 @@ export const EmployeeDashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+              className={`px-6 py-3 rounded-xl font-semibold transition-all flex items-center space-x-2 ${
                 activeTab === tab.id
                   ? 'gradient-primary text-white shadow-lg'
                   : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <span className="mr-2">{tab.icon}</span>
-              {tab.name}
+              {getTabIcon(tab.id)}
+              <span>{tab.name}</span>
             </button>
           ))}
         </div>

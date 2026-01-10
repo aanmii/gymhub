@@ -54,13 +54,14 @@ public class BookingController {
         return ResponseEntity.ok(bookings);
     }
 
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MEMBER') or hasRole('EMPLOYEE') or hasRole('ADMIN')")
     @Operation(summary = "Cancel booking", description = "Cancel a booking (returns credit to member)")
     public ResponseEntity<Void> cancelBooking(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        bookingService.cancelBooking(id, userDetails.getId());
+        bookingService.cancelBooking(id, userDetails.getId(), userDetails.getRole());
         return ResponseEntity.noContent().build();
     }
 }

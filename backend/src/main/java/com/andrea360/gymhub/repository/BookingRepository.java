@@ -42,4 +42,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             "WHERE b.appointment.id = :appointmentId " +
             "AND b.status = 'CONFIRMED'")
     List<Booking> findConfirmedBookingsByAppointment(@Param("appointmentId") Long appointmentId);
+    Optional<Booking> findByAppointmentIdAndMemberId(Long appointmentId, Long memberId);
 }

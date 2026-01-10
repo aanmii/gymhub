@@ -19,6 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.andrea360.gymhub.entity.Role;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -46,24 +48,55 @@ public class BookingService {
         User member = userRepository.findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found"));
 
-        if (appointment.isFull()) {
-            throw new BadRequestException("Appointment is full");
-        }
-
-        Boolean alreadyBooked = bookingRepository.existsByAppointmentIdAndMemberIdAndStatus(
-                appointment.getId(),
-                memberId
-        );
-
-        if (Boolean.TRUE.equals(alreadyBooked)) {
-            logger.warn("Member {} already booked appointment {}", memberId, request.getAppointmentId());
-            throw new BadRequestException("You have already booked this appointment");
-        }
-
         if (appointment.getStartTime().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Cannot book past appointments");
         }
 
+        if (appointment.isFull()) {
+            throw new BadRequestException("Appointment is full");
+        }
+
+        Booking existing = bookingRepository
+                .findByAppointmentIdAndMemberId(appointment.getId(), memberId)
+                .orElse(null);
+
+        if (existing != null) {
+            if (existing.getStatus() == Booking.BookingStatus.CONFIRMED) {
+                logger.warn("Member {} already booked appointment {}", memberId, request.getAppointmentId());
+                throw new BadRequestException("You have already booked this appointment");
+            }
+
+            if (existing.getStatus() == Booking.BookingStatus.CANCELLED) {
+                logger.info("Reactivating cancelled booking {}", existing.getId());
+
+                MemberCredit credit = memberCreditRepository
+                        .findFirstByMemberIdAndGymServiceIdAndUsedFalseOrderByPurchasedAtAsc(
+                                memberId,
+                                appointment.getGymService().getId()
+                        )
+                        .orElseThrow(() -> new BadRequestException("No available credits to reactivate booking"));
+
+                existing.setStatus(Booking.BookingStatus.CONFIRMED);
+                existing.setCancelledAt(null);
+                existing.setUsedCredit(credit);
+
+                credit.setUsed(true);
+                credit.setUsedAt(LocalDateTime.now());
+                memberCreditRepository.save(credit);
+
+                appointment.incrementBookings();
+                appointmentRepository.save(appointment);
+                bookingRepository.save(existing);
+
+                try {
+                    sendAppointmentUpdate(appointment, "BOOKING_REACTIVATED");
+                } catch (Exception e) {
+                    logger.warn("Failed to send WebSocket update: {}", e.getMessage());
+                }
+
+                return mapToResponse(existing);
+            }
+        }
 
         MemberCredit credit = memberCreditRepository
                 .findFirstByMemberIdAndGymServiceIdAndUsedFalseOrderByPurchasedAtAsc(
@@ -71,9 +104,6 @@ public class BookingService {
                         appointment.getGymService().getId()
                 )
                 .orElseThrow(() -> new BadRequestException("No available credits for this service. Please purchase credits first."));
-
-        logger.info("All validations passed. Creating booking...");
-
 
         Booking booking = Booking.builder()
                 .appointment(appointment)
@@ -103,7 +133,6 @@ public class BookingService {
             throw new BadRequestException("Failed to process credit. Booking cancelled.");
         }
 
-
         try {
             appointment.incrementBookings();
             appointmentRepository.save(appointment);
@@ -120,12 +149,10 @@ public class BookingService {
             throw new BadRequestException("Failed to update appointment. Booking cancelled.");
         }
 
-
         try {
             sendAppointmentUpdate(appointment, "BOOKING_CREATED");
         } catch (Exception e) {
             logger.warn("Failed to send WebSocket update: {}", e.getMessage());
-
         }
 
         logger.info("✅ Booking successfully created with id: {}", booking.getId());
@@ -145,15 +172,23 @@ public class BookingService {
     }
 
     @Transactional
-    public void cancelBooking(Long bookingId, Long memberId) {
-        logger.info("Cancelling booking: {} for member: {}", bookingId, memberId);
+    public void cancelBooking(Long bookingId, Long userId, Role role) {
+        logger.info("Cancelling booking: {} by user: {} with role {}", bookingId, userId, role);
 
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        if (!booking.getMember().getId().equals(memberId)) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean isAdmin = role == Role.ADMIN;
+        boolean isEmployee = role == Role.EMPLOYEE;
+        boolean isMember = role == Role.MEMBER;
+
+        if (isMember && !booking.getMember().getId().equals(userId)) {
             throw new BadRequestException("You can only cancel your own bookings");
         }
+
 
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
             throw new BadRequestException("Booking is already cancelled");
@@ -166,21 +201,15 @@ public class BookingService {
         booking.setStatus(Booking.BookingStatus.CANCELLED);
         booking.setCancelledAt(LocalDateTime.now());
         bookingRepository.save(booking);
-        logger.info("Booking marked as cancelled: {}", bookingId);
 
         MemberCredit credit = booking.getUsedCredit();
         credit.setUsed(false);
         credit.setUsedAt(null);
         memberCreditRepository.save(credit);
-        logger.info("Credit returned to member: {}", credit.getId());
-
 
         Appointment appointment = booking.getAppointment();
         appointment.decrementBookings();
         appointmentRepository.save(appointment);
-        logger.info("Appointment bookings decremented: {}/{}",
-                appointment.getCurrentBookings(),
-                appointment.getMaxCapacity());
 
         try {
             sendAppointmentUpdate(appointment, "BOOKING_CANCELLED");
@@ -188,8 +217,10 @@ public class BookingService {
             logger.warn("Failed to send WebSocket update: {}", e.getMessage());
         }
 
-        logger.info("✅ Booking successfully cancelled: {}", bookingId);
+        logger.info("Booking successfully cancelled: {}", bookingId);
     }
+
+
 
     private void sendAppointmentUpdate(Appointment appointment, String eventType) {
         AppointmentUpdateEvent event = AppointmentUpdateEvent.builder()

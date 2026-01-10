@@ -249,6 +249,15 @@ export const BookingsManagement = ({ locationId }: BookingsManagementProps) => {
                       </div>
                     </div>
                   </div>
+
+                  {booking.status === 'CONFIRMED' && (
+                    <button
+                      onClick={() => handleCancelBooking(booking.id)}
+                      className="ml-4 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-all font-medium"
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
